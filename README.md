@@ -3,7 +3,7 @@
 **ZV1Viewer** is a lightweight, offline, ad-free Android app built to turn any USB-OTG capable Android phone or tablet into a fast external photo review monitor for the **Sony ZV-1 Mark 1** (and potentially other Sony cameras supporting standard USB MTP).
 
 ## Features
-* **Auto-Launch on USB Connect:** Opens when you connect device to Sony ZV-1 via OTG cable. (JPEG only! Give appropriate permission for launch. Use cable with on/off-switch for max comfort and long-term protection of connectors.) 
+* **Auto-Launch on USB Connect:** App opens up and shuts down (!) on connecting and disconnecting the required OTG-USB cable to/from the camera, respectively (required workaround for reading sd-card of ZV-1). Use cable with on/off-switch for max comfort and long-term protection of connectors. 
 * **Instant High-Res Preview:** Loads JPEGs directly from the camera's SD card (scaled up to 2560px in RAM for fast loading and low memory usage).
 * **Focus Check & Navigation:**
   * Pinch-to-zoom (up to 6x) and pan to verify critical sharpness.
@@ -21,3 +21,5 @@ Before connecting the USB cable, configure your Sony ZV-1 once:
 1. Download `app-release.apk` from the **Releases** section.
 2. Open the APK on your Android device (Android 7.0 / API 24 or newer) and allow installation from unknown sources if prompted.
 3. Connect your Sony ZV-1 via a USB-OTG cable/adapter and confirm the Android USB permission dialog once ("always open...").
+
+Doesn't work with your device? You can fix it, with or without AI - my programming knowledge is close to zero. 
