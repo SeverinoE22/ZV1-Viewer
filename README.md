@@ -4,7 +4,7 @@ ZV1-Viewer is a lightweight, offline, ad-free Android app built to turn any USB-
 
 ## Features
 
-- **Auto-Launch on USB Connect:** App opens up and shuts down (!) on connecting and disconnecting the required OTG-USB cable to/from the camera, respectively (restart of app is a required workaround for reading the SD card of the ZV-1). Use a cable with an on/off switch for max comfort and long-term protection of connectors.
+- **Auto-Launch on USB Connect:** App opens up and shuts down (!) on connecting and disconnecting the required OTG-USB cable to/from the camera, respectively (relaunch of app turned out an unavoidable workaround for reading the SD card of the ZV-1). Use a cable with an on/off switch for max comfort and long-term protection of connectors.
 - **JPEG & Sony RAW (`.ARW`) Support:**
   - **JPEGs** are loaded directly from the camera's SD card and scaled up to max. **2560px** width for sharp focus checks and low memory usage.
   - **Sony RAW (`.ARW`)** files are marked with a `RAW` badge on their thumbnails and load their embedded JPEG preview (1616×1080px) via partial USB transfer for instant viewing without copying huge RAW files.
