@@ -12,7 +12,7 @@ ZV1-Viewer is a lightweight, offline, ad-free Android app built to turn any USB-
   - Pinch-to-zoom (up to 6x) and pan to verify critical sharpness.
   - Swipe left/right to browse through photos when unzoomed.
   - Dedicated **Fullscreen** mode to maximize screen space in landscape orientation.
-- **Optional Local Backup:** Save the displayed preview (up to 2560px for JPEGs, or the embedded preview as `.jpg` for `.ARW` files) directly to your phone's gallery (`Pictures/ZV1Viewer`) with a single tap on **Save to gallery (2560px)**.
+- **Optional Local Backup:** Save the displayed preview (up to 2560px for JPEGs, or the embedded preview as `.jpg` for `.ARW` files) directly to your phone's gallery (`Pictures/ZV1Viewer`) with a single tap on **Save to gallery**.
 - **Privacy First:** 100% offline. No internet permission, no tracking, no ads.
 
 ## Required Sony ZV-1 Camera Settings
@@ -21,8 +21,6 @@ Before connecting the USB cable, configure your Sony ZV-1 once:
 
 1. `MENU` → `(Network)` → `[PC Remote Func.]` → `[PC Remote]`: **Off**
 2. `MENU` → `(Setup)` → `[USB Connection]`: **MTP**
-
-## Installation
 
 ## Installation
 
