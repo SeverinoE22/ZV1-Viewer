@@ -51,11 +51,9 @@ data class MtpPhoto(
 class MainActivity : ComponentActivity() {
     private val ACTION_USB_PERMISSION = "com.example.zv1viewer.USB_PERMISSION"
 
-    // Diese Variablen gehören jetzt der Activity, nicht mehr der UI
     private var activeConnection: UsbDeviceConnection? = null
     private var activeMtpDevice: MtpDevice? = null
 
-    // UI States
     private val photosState = mutableStateOf<List<MtpPhoto>>(emptyList())
     private val statusTextState = mutableStateOf("Searching for Sony ZV-1...")
     private val isLoadingListState = mutableStateOf(false)
@@ -69,10 +67,8 @@ class MainActivity : ComponentActivity() {
                     refreshTrigger.intValue++
                 }
                 UsbManager.ACTION_USB_DEVICE_DETACHED -> {
-                    // Kabel wurde gezogen!
-                    // 1. USB-Verbindung sauber schließen
+
                     closeUsb()
-                    // 2. Die App komplett beenden und aus dem Task-Manager werfen
                     finishAndRemoveTask()
                 }
             }
@@ -118,20 +114,16 @@ class MainActivity : ComponentActivity() {
         closeUsb()
     }
 
-    // Wird aufgerufen, wenn der Trigger sich ändert
     fun loadPhotos() {
-        // 1. Alte Verbindung sauber schließen
         closeUsb()
 
         photosState.value = emptyList()
         isLoadingListState.value = true
-        statusTextState.value = "Suche Sony ZV-1..."
+        statusTextState.value = "Searching Sony ZV-1..."
 
         val usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
 
-        // Retry-Schleife für Device-Erkennung
         var sonyDevice: UsbDevice? = null
-        // Wir machen das asynchron, um den Main-Thread nicht zu blockieren
         kotlin.concurrent.thread {
             for (i in 0 until 5) {
                 sonyDevice = usbManager.deviceList.values.firstOrNull { it.vendorId == 1356 }
@@ -142,7 +134,7 @@ class MainActivity : ComponentActivity() {
             val device = sonyDevice
             if (device == null) {
                 runOnUiThread {
-                    statusTextState.value = "Keine Sony ZV-1 verbunden.\nKabel-Schalter auf MTP stellen."
+                    statusTextState.value = "No Sony ZV-1 detected.\nCheck cable/switch/settings."
                     isLoadingListState.value = false
                 }
                 return@thread
@@ -150,22 +142,28 @@ class MainActivity : ComponentActivity() {
 
             if (!usbManager.hasPermission(device)) {
                 runOnUiThread {
-                    statusTextState.value = "Fordere USB-Berechtigung an..."
+                    statusTextState.value = "Requesting USB-permission..."
                     isLoadingListState.value = false
-                    val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
-                    val pi = PendingIntent.getBroadcast(this, 0, Intent(ACTION_USB_PERMISSION), flags)
+                    val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    } else {
+                        PendingIntent.FLAG_UPDATE_CURRENT
+                    }
+                    val intent = Intent(ACTION_USB_PERMISSION).apply {
+                        setPackage(packageName)
+                    }
+                    val pi = PendingIntent.getBroadcast(this, 0, intent, flags)
                     usbManager.requestPermission(device, pi)
                 }
                 return@thread
             }
 
-            runOnUiThread { statusTextState.value = "Lese ZV-1 SD-Karte..." }
+            runOnUiThread { statusTextState.value = "Reading ZV-1 SD-Card..." }
 
-            // MTP Initialisierung (im Hintergrund-Thread)
             val connection = usbManager.openDevice(device)
             if (connection == null) {
                 runOnUiThread {
-                    statusTextState.value = "USB-Verbindung fehlgeschlagen (busy?)"
+                    statusTextState.value = "USB-Connection failed (busy?)"
                     isLoadingListState.value = false
                 }
                 return@thread
@@ -175,7 +173,7 @@ class MainActivity : ComponentActivity() {
             if (!mtp.open(connection)) {
                 connection.close()
                 runOnUiThread {
-                    statusTextState.value = "MTP-Verbindung fehlgeschlagen"
+                    statusTextState.value = "MTP-Connection failed"
                     isLoadingListState.value = false
                 }
                 return@thread
@@ -195,10 +193,14 @@ class MainActivity : ComponentActivity() {
                 val handles = mtp.getObjectHandles(storageId, 0, 0) ?: intArrayOf()
                 for (handle in handles) {
                     val info = mtp.getObjectInfo(handle)
-                    if (info != null && (info.name.endsWith(".jpg", true) || info.name.endsWith(".jpeg", true))) {
-                        val thumbBytes = mtp.getThumbnail(handle)
-                        val thumbBmp = thumbBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
-                        list.add(MtpPhoto(handle, info.name, info.dateCreated, info.compressedSize, thumbBmp))
+                    if (info != null) {
+                        val isJpg = info.name.endsWith(".jpg", true) || info.name.endsWith(".jpeg", true)
+                        val isArw = info.name.endsWith(".arw", true)
+                        if (isJpg || isArw) {
+                            val thumbBytes = mtp.getThumbnail(handle)
+                            val thumbBmp = thumbBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+                            list.add(MtpPhoto(handle, info.name, info.dateCreated, info.compressedSize, thumbBmp))
+                        }
                     }
                 }
             }
@@ -207,26 +209,92 @@ class MainActivity : ComponentActivity() {
 
             runOnUiThread {
                 photosState.value = sortedList
-                statusTextState.value = if (sortedList.isEmpty()) "Keine JPEGs auf der ZV-1 gefunden." else "${sortedList.size} Fotos gefunden"
+                statusTextState.value = if (sortedList.isEmpty()) "Cannot find any photos on ZV-1." else "${sortedList.size} photos found"
                 isLoadingListState.value = false
             }
         }
     }
 
-    // Wird von der UI aufgerufen, wenn ein Bild im Vollbild geladen werden soll
+
     private suspend fun loadFullImage(photo: MtpPhoto): Bitmap? = withContext(Dispatchers.IO) {
         val mtp = activeMtpDevice ?: return@withContext null
         try {
-            val bytes = mtp.getObject(photo.handle, photo.compressedSize) ?: return@withContext null
-            val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
-            var sample = 1
-            while (opts.outWidth / sample > 2560 || opts.outHeight / sample > 2560) {
-                sample *= 2
+            val isArw = photo.name.endsWith(".arw", true)
+
+            val bytes: ByteArray = if (isArw) {
+                val maxRead = minOf(photo.compressedSize, 2_500_000)
+                val buffer = ByteArray(maxRead)
+                val read = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    mtp.getPartialObject(photo.handle, 0L, maxRead.toLong(), buffer)
+                } else {
+                    val fullBytes = mtp.getObject(photo.handle, photo.compressedSize) ?: return@withContext null
+                    return@withContext decodeSampledJpeg(extractEmbeddedJpegFromArw(fullBytes, fullBytes.size) ?: return@withContext null)
+                }
+                if (read <= 0) return@withContext null
+                extractEmbeddedJpegFromArw(buffer, read.toInt()) ?: return@withContext null
+            } else {
+                mtp.getObject(photo.handle, photo.compressedSize) ?: return@withContext null
             }
-            val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOpts)
+
+
+            decodeSampledJpeg(bytes)
         } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun decodeSampledJpeg(bytes: ByteArray): Bitmap? {
+        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+
+        var sample = 1
+        while (opts.outWidth / (sample * 2) >= 2560 || opts.outHeight / (sample * 2) >= 2560) {
+            sample *= 2
+        }
+        val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
+        val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOpts) ?: return null
+
+        // Exakt auf max. 2560px skalieren, falls noch leicht darüber (z. B. 2736px -> 2560px)
+        val maxDim = maxOf(bmp.width, bmp.height)
+        return if (maxDim > 2560) {
+            val scale = 2560f / maxDim
+            val newW = (bmp.width * scale).toInt()
+            val newH = (bmp.height * scale).toInt()
+            Bitmap.createScaledBitmap(bmp, newW, newH, true).also {
+                if (it != bmp) bmp.recycle()
+            }
+        } else {
+            bmp
+        }
+    }
+
+
+    private fun extractEmbeddedJpegFromArw(data: ByteArray, length: Int): ByteArray? {
+        var bestStart = -1
+        var bestEnd = -1
+        var i = 0
+        while (i < length - 2) {
+            if (data[i] == 0xFF.toByte() && data[i + 1] == 0xD8.toByte() && data[i + 2] == 0xFF.toByte()) {
+                val start = i
+                var j = i + 2
+                while (j < length - 1) {
+                    if (data[j] == 0xFF.toByte() && data[j + 1] == 0xD9.toByte()) {
+                        val end = j + 2
+                        if (end - start > (bestEnd - bestStart)) {
+                            bestStart = start
+                            bestEnd = end
+                        }
+                        i = end
+                        break
+                    }
+                    j++
+                }
+            }
+            i++
+        }
+        return if (bestStart != -1 && bestEnd > bestStart) {
+            data.copyOfRange(bestStart, bestEnd)
+        } else {
             null
         }
     }
@@ -248,17 +316,12 @@ fun ZV1ViewerScreen(
     getFullImage: suspend (MtpPhoto) -> Bitmap?,
     getMtpDevice: () -> MtpDevice?
 ) {
-    // Dieser Effekt reagiert auf den Trigger (in der Activity definiert)
-    // Er wird nicht mehr für die USB-Logik genutzt, sondern ruft loadPhotos() auf.
-    // Da wir keinen direkten Zugriff auf loadPhotos() von außen haben, triggern wir es über die Activity.
-    // (Dies geschieht durch den onRefresh-Callback und den Receiver)
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     // Holt die Activity, um loadPhotos() aufzurufen
     val activity = context as? MainActivity
 
-    // Dieser Effekt startet das Laden, wenn die App startet oder der Trigger sich ändert
     LaunchedEffect(trigger) {
         activity?.loadPhotos()
     }
@@ -272,12 +335,10 @@ fun ZV1ViewerScreen(
     var isFullscreen by remember { mutableStateOf(false) }
     var dragSum by remember { mutableFloatStateOf(0f) }
 
-    // Wenn sich die Fotoliste ändert, Index zurücksetzen
     LaunchedEffect(photos) {
         selectedIndex = 0
     }
 
-    // Vollbild laden, wenn sich der Index ändert
     LaunchedEffect(photos, selectedIndex) {
         scale = 1f; offsetX = 0f; offsetY = 0f
         val current = photos.getOrNull(selectedIndex) ?: return@LaunchedEffect
@@ -311,22 +372,24 @@ fun ZV1ViewerScreen(
                     OutlinedButton(onClick = { isFullscreen = true }) {
                         Text("Fullscreen")
                     }
-                    Button(
+                    OutlinedButton(
                         onClick = {
-                            val bmp = fullBitmap ?: return@Button
-                            val name = photos.getOrNull(selectedIndex)?.name ?: "ZV1_Photo.jpg"
+                            val bmp = fullBitmap ?: return@OutlinedButton
+                            val rawName = photos.getOrNull(selectedIndex)?.name ?: "ZV1_Photo.jpg"
+                            val name = rawName.replace(Regex("\\.arw$", RegexOption.IGNORE_CASE), ".jpg")
                             scope.launch {
                                 val saved = savePreviewToGallery(context, bmp, name)
                                 Toast.makeText(
                                     context,
-                                    if (saved) "Saved: $name" else "Save failed",
+                                    if (saved) "Saved: $name" else "Saving failed",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
                         }
                     ) {
-                        Text("Save (2560px)")
+                        Text("Save to gallery")
                     }
+
                 }
             }
         }
@@ -336,7 +399,7 @@ fun ZV1ViewerScreen(
                 .weight(1f)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(if (isFullscreen) 0.dp else 8.dp))
-                .background(Color(0xFF121212))
+                .background(Color.Black)
                 .pointerInput(photos.size, selectedIndex) {
                     detectTransformGestures { _, pan, zoom, _ ->
                         val newScale = (scale * zoom).coerceIn(1f, 6f)
@@ -427,15 +490,27 @@ fun ZV1ViewerScreen(
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
+                            if (photo.name.endsWith(".arw", true)) {
+                                Text(
+                                    text = "RAW",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
                         } else {
                             Text(photo.name.takeLast(8), color = Color.White, style = MaterialTheme.typography.labelSmall)
                         }
-                    } // schließt Box (Thumbnail)
-                } // schließt itemsIndexed
-            } // schließt LazyRow
-        } // schließt if (!isFullscreen && photos.isNotEmpty())
-    } // schließt Column
-} // schließt fun ZV1ViewerScreen
+
+                    }
+                }
+            }
+        }
+    }
+}
 
 suspend fun savePreviewToGallery(context: Context, bitmap: Bitmap, fileName: String): Boolean =
     withContext(Dispatchers.IO) {
