@@ -26,7 +26,7 @@ Before connecting the USB cable, configure your Sony ZV-1 once:
 
 1. Download `app-release.apk` from the **Releases** section.
 2. Open the APK on your Android device (Android 7.0 / API 24 or newer) and allow installation from unknown sources if prompted.
-3. Connect your Sony ZV-1 via a USB-OTG cable/adapter and **confirm the Android USB permission dialog once** (*"Always open..."*).
+3. Connect your Sony ZV-1 via a USB-OTG cable/adapter and **confirm the Android USB permission / data exchange dialog once** (*"Always open..."*).
 
 ---
 
