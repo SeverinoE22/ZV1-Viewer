@@ -1,6 +1,6 @@
-# ZV1Viewer
+# ZV1-Viewer
 
-ZV1Viewer is a lightweight, offline, ad-free Android app built to turn any USB-OTG capable Android phone or tablet into a fast external photo review monitor for the Sony ZV-1 Mark 1 (and potentially other Sony cameras supporting standard USB MTP).
+ZV1-Viewer is a lightweight, offline, ad-free Android app built to turn any USB-OTG capable Android phone or tablet into a fast external photo review monitor for the Sony ZV-1 Mark 1 (and potentially other Sony cameras supporting standard USB MTP).
 
 ## Features
 
